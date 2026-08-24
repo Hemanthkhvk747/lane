@@ -3,13 +3,8 @@
 Live order-and-dispatch backend (Python, FastAPI, PostgreSQL, Redis, Docker).
 A thin real-world slice: customer, store, and rider share one order.
 
-Product UI: http://localhost:8000/ (Swagger is off)
+Product UI: http://localhost:8000/
 
-## Status
-
-- Week 1 — JWT auth, roles, sign-in desk
-- Week 2 — Stores, menus, stock, role checks (401 vs 403)
-- Week 3 — Checkout: row-level stock lock, store accept/reject
 
 ## Run
 
@@ -32,4 +27,3 @@ docker compose up --build
 | `app/security.py` | Password hash (Argon2) and JWT |
 | `app/web/` | Product UI |
 
-Do not commit `.env`. Use `.env.example`.
