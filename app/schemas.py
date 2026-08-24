@@ -64,3 +64,36 @@ class MenuItemPublic(BaseModel):
     stock: int
 
     model_config = {"from_attributes": True}
+
+
+class OrderLineIn(BaseModel):
+    menu_item_id: int
+    quantity: int = Field(ge=1, le=50)
+
+
+class OrderCreate(BaseModel):
+    store_id: int
+    items: list[OrderLineIn] = Field(min_length=1, max_length=20)
+
+
+class OrderLinePublic(BaseModel):
+    name: str
+    quantity: int
+    unit_price_rupees: int
+
+    model_config = {"from_attributes": True}
+
+
+class OrderPublic(BaseModel):
+    id: int
+    store_id: int
+    customer_user_id: int
+    status: str
+    total_rupees: int
+    lines: list[OrderLinePublic]
+
+    model_config = {"from_attributes": True}
+
+
+class OrderStatusPatch(BaseModel):
+    status: Literal["accepted", "rejected"]

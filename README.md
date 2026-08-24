@@ -9,7 +9,7 @@ Product UI: http://localhost:8000/ (Swagger is off)
 
 - Week 1 — JWT auth, roles, sign-in desk
 - Week 2 — Stores, menus, stock, role checks (401 vs 403)
-- Week 3+ — Checkout with row locks, live status, Relay (in progress)
+- Week 3 — Checkout: row-level stock lock, store accept/reject
 
 ## Run
 

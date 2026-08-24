@@ -41,6 +41,7 @@ class Store(Base):
     )
     owner: Mapped["User"] = relationship(back_populates="store")
     items: Mapped[list["MenuItem"]] = relationship(back_populates="store")
+    orders: Mapped[list["Order"]] = relationship(back_populates="store")
 
 
 class MenuItem(Base):
@@ -56,3 +57,31 @@ class MenuItem(Base):
         default=lambda: datetime.now(timezone.utc),
     )
     store: Mapped["Store"] = relationship(back_populates="items")
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="placed")
+    total_rupees: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    store: Mapped["Store"] = relationship(back_populates="orders")
+    lines: Mapped[list["OrderLine"]] = relationship(back_populates="order")
+
+
+class OrderLine(Base):
+    __tablename__ = "order_lines"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
+    menu_item_id: Mapped[int] = mapped_column(ForeignKey("menu_items.id"))
+    name: Mapped[str] = mapped_column(String(120))
+    quantity: Mapped[int] = mapped_column(Integer)
+    unit_price_rupees: Mapped[int] = mapped_column(Integer)
+    order: Mapped["Order"] = relationship(back_populates="lines")

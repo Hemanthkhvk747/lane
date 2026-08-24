@@ -66,7 +66,7 @@ function hideViews() {
   document.getElementById("view-rider").classList.add("hidden");
 }
 
-function renderMenu(listEl, items, { editable = false, storeId = null } = {}) {
+function renderMenu(listEl, items, { editable = false, orderable = false, storeId = null } = {}) {
   listEl.innerHTML = "";
   if (!items.length) {
     const empty = document.createElement("li");
@@ -77,7 +77,7 @@ function renderMenu(listEl, items, { editable = false, storeId = null } = {}) {
   }
   for (const item of items) {
     const li = document.createElement("li");
-    li.className = editable ? "static" : "static";
+    li.className = "static";
     const label = document.createElement("span");
     label.textContent = `${item.name} · ₹${item.price_rupees}`;
     li.appendChild(label);
@@ -100,12 +100,66 @@ function renderMenu(listEl, items, { editable = false, storeId = null } = {}) {
         }
       });
       li.appendChild(stock);
-    } else {
-      const qty = document.createElement("span");
-      qty.textContent = `${item.stock} left`;
+    } else if (orderable) {
+      const qty = document.createElement("input");
+      qty.type = "number";
+      qty.min = "0";
+      qty.max = String(item.stock);
+      qty.value = "0";
+      qty.className = "stock-edit";
+      qty.dataset.itemId = String(item.id);
+      qty.title = `${item.stock} left`;
       li.appendChild(qty);
+    } else {
+      const left = document.createElement("span");
+      left.textContent = `${item.stock} left`;
+      li.appendChild(left);
     }
     listEl.appendChild(li);
+  }
+}
+
+function renderOrders(listEl, orders, { storeActions = false } = {}) {
+  listEl.innerHTML = "";
+  if (!orders.length) {
+    const empty = document.createElement("li");
+    empty.className = "static";
+    empty.textContent = "No orders yet.";
+    listEl.appendChild(empty);
+    return;
+  }
+  for (const order of orders) {
+    const li = document.createElement("li");
+    li.className = "static";
+    const summary = order.lines.map((line) => `${line.quantity}× ${line.name}`).join(", ");
+    const text = document.createElement("span");
+    text.textContent = `#${order.id} ${order.status} · ₹${order.total_rupees} · ${summary}`;
+    li.appendChild(text);
+    if (storeActions && order.status === "placed") {
+      const accept = document.createElement("button");
+      accept.type = "button";
+      accept.className = "ghost tight";
+      accept.textContent = "Accept";
+      accept.addEventListener("click", () => decideOrder(order.id, "accepted"));
+      const reject = document.createElement("button");
+      reject.type = "button";
+      reject.className = "ghost tight";
+      reject.textContent = "Reject";
+      reject.addEventListener("click", () => decideOrder(order.id, "rejected"));
+      li.appendChild(accept);
+      li.appendChild(reject);
+    }
+    listEl.appendChild(li);
+  }
+}
+
+async function decideOrder(orderId, status) {
+  showDeskError("");
+  try {
+    await api(`/orders/${orderId}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    await loadStoreDesk();
+  } catch (err) {
+    showDeskError(err.message);
   }
 }
 
@@ -124,6 +178,8 @@ async function loadStoreDesk() {
       storeId: store.id,
     });
     formStore.dataset.storeId = String(store.id);
+    const inbox = await api("/orders/inbox");
+    renderOrders(document.getElementById("store-orders"), inbox, { storeActions: true });
   } catch (err) {
     formStore.classList.remove("hidden");
     board.classList.add("hidden");
@@ -155,7 +211,10 @@ async function loadCustomerStores() {
       list.classList.add("hidden");
       menuWrap.classList.remove("hidden");
       document.getElementById("customer-store-name").textContent = store.name;
-      renderMenu(document.getElementById("customer-items"), items);
+      menuWrap.dataset.storeId = String(store.id);
+      renderMenu(document.getElementById("customer-items"), items, { orderable: true });
+      const mine = await api("/orders/me");
+      renderOrders(document.getElementById("customer-orders"), mine);
     });
     list.appendChild(li);
   }
@@ -275,6 +334,29 @@ document.getElementById("form-item").addEventListener("submit", async (event) =>
     event.target.price_rupees.value = "80";
     event.target.stock.value = "10";
     await loadStoreDesk();
+  } catch (err) {
+    showDeskError(err.message);
+  }
+});
+
+document.getElementById("btn-place-order").addEventListener("click", async () => {
+  showDeskError("");
+  const wrap = document.getElementById("customer-menu");
+  const storeId = Number(wrap.dataset.storeId);
+  const qtys = [...wrap.querySelectorAll("input[data-item-id]")];
+  const items = qtys
+    .map((input) => ({ menu_item_id: Number(input.dataset.itemId), quantity: Number(input.value) }))
+    .filter((line) => line.quantity > 0);
+  if (!items.length) {
+    showDeskError("Pick at least one item.");
+    return;
+  }
+  try {
+    await api("/orders", { method: "POST", body: JSON.stringify({ store_id: storeId, items }) });
+    const menu = await api(`/stores/${storeId}/items`);
+    renderMenu(document.getElementById("customer-items"), menu, { orderable: true });
+    const mine = await api("/orders/me");
+    renderOrders(document.getElementById("customer-orders"), mine);
   } catch (err) {
     showDeskError(err.message);
   }

@@ -12,13 +12,13 @@
         <p class="mark">Lane</p>
         <h1>Live order desk</h1>
         <p class="lede">
-          Week 2: a store owns a shop and a menu. Customers browse.
-          Checkout and live status come next.
+          Week 3: checkout holds stock with a row lock. Store accepts or rejects.
+          Live status is next.
         </p>
         <ol class="steps">
           <li>Account and JWT</li>
-          <li class="on">Stores and menus</li>
-          <li>Checkout and stock locks</li>
+          <li>Stores and menus</li>
+          <li class="on">Checkout and stock locks</li>
           <li>Live status on the wire</li>
         </ol>
       </aside>
@@ -102,6 +102,8 @@
                 <button type="submit" class="primary">Add to menu</button>
               </form>
               <ul id="store-menu" class="menu-list"></ul>
+              <p class="eyebrow">Incoming orders</p>
+              <ul id="store-orders" class="menu-list"></ul>
             </div>
           </div>
 
@@ -112,6 +114,9 @@
               <button type="button" id="btn-back-stores" class="ghost tight">All stores</button>
               <p class="eyebrow" id="customer-store-name"></p>
               <ul id="customer-items" class="menu-list"></ul>
+              <button type="button" id="btn-place-order" class="primary">Place order</button>
+              <p class="eyebrow">Your orders</p>
+              <ul id="customer-orders" class="menu-list"></ul>
             </div>
           </div>
 
