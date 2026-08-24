@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lane — sign in</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="rail">
+        <p class="mark">Lane</p>
+        <h1>Live order desk</h1>
+        <p class="lede">
+          Week 2: a store owns a shop and a menu. Customers browse.
+          Checkout and live status come next.
+        </p>
+        <ol class="steps">
+          <li>Account and JWT</li>
+          <li class="on">Stores and menus</li>
+          <li>Checkout and stock locks</li>
+          <li>Live status on the wire</li>
+        </ol>
+      </aside>
+
+      <main class="panel">
+        <section id="gate" class="card">
+          <div class="tabs" role="tablist">
+            <button type="button" id="tab-register" class="tab on">Create account</button>
+            <button type="button" id="tab-login" class="tab">Sign in</button>
+          </div>
+
+          <form id="form-register" class="form">
+            <label>
+              Email
+              <input name="email" type="email" required autocomplete="username" />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" required minlength="8" autocomplete="new-password" />
+            </label>
+            <label>
+              Role
+              <select name="role">
+                <option value="customer">Customer</option>
+                <option value="store">Store</option>
+                <option value="rider">Rider</option>
+              </select>
+            </label>
+            <button type="submit" class="primary">Create account</button>
+          </form>
+
+          <form id="form-login" class="form hidden">
+            <label>
+              Email
+              <input name="email" type="email" required autocomplete="username" />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" required minlength="8" autocomplete="current-password" />
+            </label>
+            <button type="submit" class="primary">Sign in</button>
+          </form>
+
+          <p id="gate-error" class="err" hidden></p>
+        </section>
+
+        <section id="desk" class="card hidden">
+          <div class="desk-head">
+            <div>
+              <p class="eyebrow">Signed in</p>
+              <h2 id="desk-email"></h2>
+              <p class="role-line">Role: <strong id="desk-role"></strong> · id <span id="desk-id"></span></p>
+            </div>
+            <button type="button" id="btn-logout" class="ghost tight">Sign out</button>
+          </div>
+          <p id="desk-error" class="err" hidden></p>
+
+          <div id="view-store" class="hidden">
+            <form id="form-store" class="form">
+              <label>
+                Store name
+                <input name="name" required minlength="2" maxlength="120" placeholder="e.g. Koramangala Kitchen" />
+              </label>
+              <button type="submit" class="primary">Open store</button>
+            </form>
+            <div id="store-board" class="hidden">
+              <p class="eyebrow" id="store-name"></p>
+              <form id="form-item" class="form row">
+                <label>
+                  Item
+                  <input name="name" required maxlength="120" placeholder="Masala dosa" />
+                </label>
+                <label>
+                  Price (₹)
+                  <input name="price_rupees" type="number" required min="1" value="80" />
+                </label>
+                <label>
+                  Stock
+                  <input name="stock" type="number" required min="0" value="10" />
+                </label>
+                <button type="submit" class="primary">Add to menu</button>
+              </form>
+              <ul id="store-menu" class="menu-list"></ul>
+            </div>
+          </div>
+
+          <div id="view-customer" class="hidden">
+            <p class="eyebrow">Open stores</p>
+            <ul id="store-list" class="menu-list"></ul>
+            <div id="customer-menu" class="hidden">
+              <button type="button" id="btn-back-stores" class="ghost tight">All stores</button>
+              <p class="eyebrow" id="customer-store-name"></p>
+              <ul id="customer-items" class="menu-list"></ul>
+            </div>
+          </div>
+
+          <div id="view-rider" class="hidden">
+            <p class="note">Rider dispatch starts after checkout. For now, create a store account to build a menu, or a customer account to browse it.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>
