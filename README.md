@@ -3,16 +3,7 @@
 Live order-and-dispatch backend (Python, FastAPI, PostgreSQL, Redis, Docker).
 A thin real-world slice: customer, store, and rider share one order.
 
-Product UI: http://localhost:8000/ (Swagger is off)
-
-## Status
-
-- Week 1 — JWT auth, roles, sign-in desk
-- Week 2 — Stores, menus, stock, role checks (401 vs 403)
-- Week 3 — Checkout: row-level stock lock, store accept/reject
-- Week 4 — Live status via WebSocket + Redis; fulfillment state machine; idempotent payment webhook
-- Week 5 — Rider claim (row lock), rider-only out-for-delivery → delivered; store kitchen stops at preparing
-- Week 6 — Relay (Node): ingest Lane Redis events, idempotent jobs, retry/backoff, dead-letter
+Product UI: http://localhost:8000/
 
 ## Run
 
@@ -39,4 +30,3 @@ docker compose up --build
 | `app/events.py` | Redis pub/sub |
 | `relay/` | Node worker: Redis ingest, job retries, dead-letter |
 
-Do not commit `.env`. Use `.env.example`.
