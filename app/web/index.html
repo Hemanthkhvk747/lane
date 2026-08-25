@@ -12,14 +12,17 @@
         <p class="mark">Lane</p>
         <h1>Live order desk</h1>
         <p class="lede">
-          Week 3: checkout holds stock with a row lock. Store accepts or rejects.
-          Live status is next.
+          Week 6: Relay is a Node worker. Lane publishes order events; Relay
+          queues email jobs with an idempotency key, retries with backoff, and
+          dead-letters after 5 failures. If Relay is down, orders still work.
         </p>
         <ol class="steps">
           <li>Account and JWT</li>
           <li>Stores and menus</li>
-          <li class="on">Checkout and stock locks</li>
+          <li>Checkout and stock locks</li>
           <li>Live status on the wire</li>
+          <li>Rider claim and dispatch</li>
+          <li class="on">Relay notifications</li>
         </ol>
       </aside>
 
@@ -70,11 +73,17 @@
             <div>
               <p class="eyebrow">Signed in</p>
               <h2 id="desk-email"></h2>
-              <p class="role-line">Role: <strong id="desk-role"></strong> · id <span id="desk-id"></span></p>
+              <p class="role-line">
+                Role: <strong id="desk-role"></strong> · id <span id="desk-id"></span>
+                · <span id="live-flag">offline</span>
+              </p>
             </div>
             <button type="button" id="btn-logout" class="ghost tight">Sign out</button>
           </div>
           <p id="desk-error" class="err" hidden></p>
+          <p class="eyebrow">Relay notifications</p>
+          <p id="relay-flag" class="note">Checking Relay…</p>
+          <ul id="relay-jobs" class="menu-list"></ul>
 
           <div id="view-store" class="hidden">
             <form id="form-store" class="form">
@@ -115,13 +124,16 @@
               <p class="eyebrow" id="customer-store-name"></p>
               <ul id="customer-items" class="menu-list"></ul>
               <button type="button" id="btn-place-order" class="primary">Place order</button>
-              <p class="eyebrow">Your orders</p>
-              <ul id="customer-orders" class="menu-list"></ul>
             </div>
+            <p class="eyebrow">Your orders</p>
+            <ul id="customer-orders" class="menu-list"></ul>
           </div>
 
           <div id="view-rider" class="hidden">
-            <p class="note">Rider dispatch starts after checkout. For now, create a store account to build a menu, or a customer account to browse it.</p>
+            <p class="eyebrow">Ready for pickup</p>
+            <ul id="rider-available" class="menu-list"></ul>
+            <p class="eyebrow">My deliveries</p>
+            <ul id="rider-mine" class="menu-list"></ul>
           </div>
         </section>
       </main>

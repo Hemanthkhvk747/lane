@@ -28,12 +28,32 @@ services:
       DATABASE_URL: postgresql+psycopg://lane:lane@postgres:5432/lane
       JWT_SECRET: change-me-in-dev
       REDIS_URL: redis://redis:6379/0
+      RELAY_URL: http://relay:8001
     volumes:
       - ./app:/app/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --timeout-graceful-shutdown 3
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+
+  relay:
+    build: ./relay
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://lane:lane@postgres:5432/lane
+      REDIS_URL: redis://redis:6379/0
+      RELAY_FAIL_RATE: "0"
+    volumes:
+      - ./relay/index.js:/app/index.js
+    command: node --watch index.js
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
 volumes:
   lane_pg:

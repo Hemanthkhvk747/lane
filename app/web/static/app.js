@@ -119,7 +119,57 @@ function renderMenu(listEl, items, { editable = false, orderable = false, storeI
   }
 }
 
-function renderOrders(listEl, orders, { storeActions = false } = {}) {
+const NEXT_ACTIONS = {
+  placed: [
+    ["accepted", "Accept"],
+    ["rejected", "Reject"],
+  ],
+  accepted: [["preparing", "Preparing"]],
+};
+
+const RIDER_NEXT = {
+  preparing: [["out_for_delivery", "Out"]],
+  out_for_delivery: [["delivered", "Delivered"]],
+};
+
+let liveSocket = null;
+let currentRole = null;
+
+function setLive(on) {
+  const flag = document.getElementById("live-flag");
+  flag.textContent = on ? "live" : "offline";
+  flag.classList.toggle("live", on);
+}
+
+function disconnectLive() {
+  if (liveSocket) {
+    liveSocket.close();
+    liveSocket = null;
+  }
+  setLive(false);
+}
+
+function connectLive() {
+  disconnectLive();
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return;
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  liveSocket = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token)}`);
+  liveSocket.onopen = () => setLive(true);
+  liveSocket.onclose = () => setLive(false);
+  liveSocket.onmessage = async () => {
+    try {
+      if (currentRole === "store") await loadStoreDesk();
+      if (currentRole === "customer") await refreshCustomerOrders();
+      if (currentRole === "rider") await loadRiderDesk();
+      await loadAlerts();
+    } catch {
+      /* ignore refresh races */
+    }
+  };
+}
+
+function renderOrders(listEl, orders, { storeActions = false, riderClaim = false, riderActions = false } = {}) {
   listEl.innerHTML = "";
   if (!orders.length) {
     const empty = document.createElement("li");
@@ -132,22 +182,37 @@ function renderOrders(listEl, orders, { storeActions = false } = {}) {
     const li = document.createElement("li");
     li.className = "static";
     const summary = order.lines.map((line) => `${line.quantity}× ${line.name}`).join(", ");
+    const riderBit = order.rider_user_id ? ` · rider ${order.rider_user_id}` : "";
     const text = document.createElement("span");
-    text.textContent = `#${order.id} ${order.status} · ₹${order.total_rupees} · ${summary}`;
+    text.textContent = `#${order.id} ${order.status}${riderBit} · ₹${order.total_rupees} · ${summary}`;
     li.appendChild(text);
-    if (storeActions && order.status === "placed") {
-      const accept = document.createElement("button");
-      accept.type = "button";
-      accept.className = "ghost tight";
-      accept.textContent = "Accept";
-      accept.addEventListener("click", () => decideOrder(order.id, "accepted"));
-      const reject = document.createElement("button");
-      reject.type = "button";
-      reject.className = "ghost tight";
-      reject.textContent = "Reject";
-      reject.addEventListener("click", () => decideOrder(order.id, "rejected"));
-      li.appendChild(accept);
-      li.appendChild(reject);
+    if (storeActions) {
+      for (const [status, label] of NEXT_ACTIONS[order.status] || []) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ghost tight";
+        btn.textContent = label;
+        btn.addEventListener("click", () => decideOrder(order.id, status));
+        li.appendChild(btn);
+      }
+    }
+    if (riderClaim) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ghost tight";
+      btn.textContent = "Claim";
+      btn.addEventListener("click", () => claimOrder(order.id));
+      li.appendChild(btn);
+    }
+    if (riderActions) {
+      for (const [status, label] of RIDER_NEXT[order.status] || []) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ghost tight";
+        btn.textContent = label;
+        btn.addEventListener("click", () => riderMove(order.id, status));
+        li.appendChild(btn);
+      }
     }
     listEl.appendChild(li);
   }
@@ -158,9 +223,78 @@ async function decideOrder(orderId, status) {
   try {
     await api(`/orders/${orderId}`, { method: "PATCH", body: JSON.stringify({ status }) });
     await loadStoreDesk();
+    await loadAlerts();
   } catch (err) {
     showDeskError(err.message);
   }
+}
+
+async function claimOrder(orderId) {
+  showDeskError("");
+  try {
+    await api(`/orders/${orderId}/claim`, { method: "POST" });
+    await loadRiderDesk();
+    await loadAlerts();
+  } catch (err) {
+    showDeskError(err.message);
+  }
+}
+
+async function riderMove(orderId, status) {
+  showDeskError("");
+  try {
+    await api(`/orders/${orderId}/rider`, { method: "PATCH", body: JSON.stringify({ status }) });
+    await loadRiderDesk();
+    await loadAlerts();
+  } catch (err) {
+    showDeskError(err.message);
+  }
+}
+
+async function loadAlerts() {
+  const flag = document.getElementById("relay-flag");
+  const list = document.getElementById("relay-jobs");
+  if (!flag || !list) return;
+  const headers = {};
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 4000);
+  try {
+    const res = await fetch("/alerts", { headers, signal: ac.signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(formatApiError(data, res.statusText));
+    flag.textContent =
+      data.relay === "offline"
+        ? "Relay is offline. Orders still work; alerts will catch up later."
+        : "Relay is live. Same event is not emailed twice (idempotency key).";
+    list.innerHTML = "";
+    if (!data.jobs.length) {
+      const empty = document.createElement("li");
+      empty.className = "static";
+      empty.textContent = "No alerts yet for this role. Change an order status, then wait a second.";
+      list.appendChild(empty);
+      return;
+    }
+    for (const job of data.jobs) {
+      const li = document.createElement("li");
+      li.className = "static";
+      const err = job.last_error ? ` · ${job.last_error}` : "";
+      li.textContent = `${job.state} · ${job.body} (${job.attempts} tries)${err}`;
+      list.appendChild(li);
+    }
+  } catch {
+    flag.textContent = "Relay is offline or slow. Open http://localhost:8001/health — orders still work.";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function loadRiderDesk() {
+  showDeskError("");
+  const board = await api("/orders/board");
+  renderOrders(document.getElementById("rider-available"), board.available, { riderClaim: true });
+  renderOrders(document.getElementById("rider-mine"), board.mine, { riderActions: true });
 }
 
 async function loadStoreDesk() {
@@ -187,6 +321,11 @@ async function loadStoreDesk() {
   }
 }
 
+async function refreshCustomerOrders() {
+  const mine = await api("/orders/me");
+  renderOrders(document.getElementById("customer-orders"), mine);
+}
+
 async function loadCustomerStores() {
   const list = document.getElementById("store-list");
   const menuWrap = document.getElementById("customer-menu");
@@ -194,6 +333,7 @@ async function loadCustomerStores() {
   menuWrap.classList.add("hidden");
   showDeskError("");
   const stores = await api("/stores");
+  await refreshCustomerOrders();
   list.innerHTML = "";
   if (!stores.length) {
     const empty = document.createElement("li");
@@ -213,8 +353,8 @@ async function loadCustomerStores() {
       document.getElementById("customer-store-name").textContent = store.name;
       menuWrap.dataset.storeId = String(store.id);
       renderMenu(document.getElementById("customer-items"), items, { orderable: true });
-      const mine = await api("/orders/me");
-      renderOrders(document.getElementById("customer-orders"), mine);
+      await refreshCustomerOrders();
+      await loadAlerts();
     });
     list.appendChild(li);
   }
@@ -230,15 +370,21 @@ async function showDesk(user) {
   document.getElementById("desk-id").textContent = String(user.id);
   hideViews();
   showDeskError("");
+  currentRole = user.role;
   if (user.role === "store") {
     document.getElementById("view-store").classList.remove("hidden");
     await loadStoreDesk();
   } else if (user.role === "customer") {
     document.getElementById("view-customer").classList.remove("hidden");
     await loadCustomerStores();
+  } else if (user.role === "rider") {
+    document.getElementById("view-rider").classList.remove("hidden");
+    await loadRiderDesk();
   } else {
     document.getElementById("view-rider").classList.remove("hidden");
   }
+  connectLive();
+  await loadAlerts();
 }
 
 function showGate() {
@@ -299,6 +445,8 @@ formLogin.addEventListener("submit", async (event) => {
 });
 
 document.getElementById("btn-logout").addEventListener("click", () => {
+  disconnectLive();
+  currentRole = null;
   localStorage.removeItem(TOKEN_KEY);
   showGate();
   setTab("login");
@@ -311,6 +459,7 @@ document.getElementById("form-store").addEventListener("submit", async (event) =
   try {
     await api("/stores", { method: "POST", body: JSON.stringify({ name: body.name }) });
     await loadStoreDesk();
+    await loadAlerts();
   } catch (err) {
     showDeskError(err.message);
   }
@@ -334,6 +483,7 @@ document.getElementById("form-item").addEventListener("submit", async (event) =>
     event.target.price_rupees.value = "80";
     event.target.stock.value = "10";
     await loadStoreDesk();
+    await loadAlerts();
   } catch (err) {
     showDeskError(err.message);
   }
@@ -355,8 +505,8 @@ document.getElementById("btn-place-order").addEventListener("click", async () =>
     await api("/orders", { method: "POST", body: JSON.stringify({ store_id: storeId, items }) });
     const menu = await api(`/stores/${storeId}/items`);
     renderMenu(document.getElementById("customer-items"), menu, { orderable: true });
-    const mine = await api("/orders/me");
-    renderOrders(document.getElementById("customer-orders"), mine);
+    await refreshCustomerOrders();
+    await loadAlerts();
   } catch (err) {
     showDeskError(err.message);
   }

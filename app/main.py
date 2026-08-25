@@ -5,9 +5,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.db import Base, engine
-from app.models import MenuItem, Order, OrderLine, Store, User  # noqa: F401
-from app.routers import auth, health, orders, stores
+from app.db import Base, engine, ensure_schema
+from app.models import MenuItem, Order, OrderLine, PaymentEvent, Store, User  # noqa: F401
+from app.routers import alerts, auth, health, live, orders, payments, stores
 
 WEB_DIR = Path(__file__).parent / "web"
 ASSETS_DIR = WEB_DIR / "static"
@@ -16,6 +16,7 @@ ASSETS_DIR = WEB_DIR / "static"
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_schema()
     yield
 
 
@@ -24,6 +25,9 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(stores.router)
 app.include_router(orders.router)
+app.include_router(payments.router)
+app.include_router(alerts.router)
+app.include_router(live.router)
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 

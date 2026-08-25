@@ -88,6 +88,7 @@ class OrderPublic(BaseModel):
     id: int
     store_id: int
     customer_user_id: int
+    rider_user_id: int | None = None
     status: str
     total_rupees: int
     lines: list[OrderLinePublic]
@@ -95,5 +96,19 @@ class OrderPublic(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DispatchBoard(BaseModel):
+    available: list[OrderPublic]
+    mine: list[OrderPublic]
+
+
 class OrderStatusPatch(BaseModel):
-    status: Literal["accepted", "rejected"]
+    status: Literal["accepted", "rejected", "preparing"]
+
+
+class RiderStatusPatch(BaseModel):
+    status: Literal["out_for_delivery", "delivered"]
+
+
+class PaymentWebhook(BaseModel):
+    event_id: str = Field(min_length=8, max_length=80)
+    order_id: int

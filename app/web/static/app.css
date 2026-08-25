@@ -175,8 +175,8 @@ select {
   font-weight: 600;
 }
 
-.role-line {
-  color: var(--muted);
+.role-line #live-flag.live {
+  color: var(--accent);
 }
 
 .note {

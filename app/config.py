@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-dev"
     jwt_expire_minutes: int = 60
     redis_url: str = "redis://localhost:6379/0"
+    relay_url: str = "http://localhost:8001"
 
 
 settings = Settings()
